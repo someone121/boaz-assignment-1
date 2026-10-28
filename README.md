@@ -60,6 +60,45 @@ For triangles, compute normalized vectors from apex `a` to endpoints `b` and `c`
 - `ALGORITHM.md`: detailed algorithm specification
 - `EXPERIMENT.md`: experiment template to complete after testing
 
-## Performance
+## Performance Benchmarking
 
-Use `--benchmark` to print **projection-only FPS**. It excludes NRRD loading, CSV reading, image normalization, and video encoding. Test on your actual hardware and dataset. The assignment expects at least 30 FPS and targets 100 FPS for a 500³ volume; this code is a baseline rather than a proven optimized solution.
+The application includes an optional benchmark mode for measuring the performance of the 3D-to-2D projection algorithm.
+
+### Running the benchmark
+
+```bash
+python Ex0.py input.nrrd planes.csv output.mp4 --benchmark
+```
+
+By default, the benchmark runs for approximately 3 seconds. To specify a longer duration:
+
+```bash
+python Ex0.py input.nrrd planes.csv output.mp4 --benchmark --benchmark-seconds 10
+```
+
+### Benchmark methodology
+
+- The application first loads the NRRD volume and parses the CSV file.
+- Invalid plane definitions are skipped with a warning.
+- Valid projections are repeatedly computed for the specified benchmark duration.
+- Performance is calculated as the number of completed projections divided by the elapsed time.
+- NRRD loading, CSV parsing, and MP4 encoding are excluded from the benchmark timing.
+- The benchmark repeats the valid planes from the CSV; it does not generate additional plane geometries.
+- The MP4 output contains one frame per valid CSV plane, regardless of how many projections were performed during benchmarking.
+
+### Example results
+
+Preliminary benchmark using `MRHead_1.nrrd` (256 × 256 × 130 voxels):
+
+| Metric | Result |
+|---|---|
+| Benchmark duration | 3.011 seconds |
+| Projections completed | 158 |
+| Average projection throughput | 52.48 FPS |
+| Average time per projection | 19.05 ms |
+| Minimum performance requirement | 30 FPS |
+| Expected performance target | 100 FPS |
+
+The implementation exceeded the 30 FPS minimum on this test workload but did not reach the 100 FPS target.
+
+**Limitations:** This benchmark repeatedly processes two valid plane definitions on a smaller MRI volume. Additional testing with a 500 × 500 × 500 volume and more diverse plane definitions is required to evaluate performance under the assignment's specified conditions.
