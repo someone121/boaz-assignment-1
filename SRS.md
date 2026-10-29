@@ -1,40 +1,29 @@
-# Software Requirements Specification (draft)
+# Software Requirements Specification (SRS)
 
 ## Scope
-Convert 3D unsigned voxel volumes stored in NRRD into an MP4 sequence of 2D samples at planes specified in a CSV file. No interactive GUI is required.
 
-## Functional requirements
+Convert 3D voxel volumes stored in NRRD format into an H.264 MP4 video sequence of 2D cross-sectional slices defined by 3-point (triangle) and 4-point (trapezoid) planes in a CSV file.
 
-- FR-1: Accept exactly three positional CLI arguments: input NRRD, input CSV, output MP4.
-- FR-2: Read a 3D NRRD with unsigned 8-, 16-, or 32-bit voxel values.
-- FR-3: Read ordered plane definitions consisting of 3 or 4 XYZ points.
-- FR-4: Validate isosceles triangular planes; support the documented four-point trapezoid convention.
-- FR-5: Sample the 3D volume at nearest-neighbor coordinates; out-of-volume samples produce zero.
-- FR-6: Produce one 2D image per CSV row, in original order.
-- FR-7: Write all frames to a playable MP4 with a fixed frame size.
-- FR-8: Report invalid inputs with actionable errors.
-- FR-9: Optionally print projection-only FPS.
+## Functional Requirements
 
-## Non-functional requirements
+- **FR-1:** Accept three positional CLI arguments (`nrrd_file`, `csv_file`, `mp4_file`) and optional flags (`--video-fps`, `--benchmark`, `--benchmark-seconds`) via `Ex0.py`.
+- **FR-2:** Read a 3D NRRD volume with dimensions `< 1024` containing unsigned 8-, 16-, or 32-bit voxel values (`uint8`, `uint16`, `uint32`), or non-negative signed 16-bit (`int16`) values converted to `uint16`.
+- **FR-3:** Read ordered plane definitions from a CSV file where each row begins with a point count (`3` or `4`) followed by 3 or 4 3D coordinates (`x, y, z`).
+- **FR-4:** Validate isosceles triangular planes (`dist(a, b) == dist(a, c)`) and coplanar four-point trapezoids with equal-length side vectors (`dist(a_left, b_left) == dist(a_right, b_right)`). Skip planes that violate the equal-edge requirement with a warning; raise an error on malformed or degenerate inputs.
+- **FR-5:** Sample the 3D volume at nearest-neighbor voxel coordinates (`floor(coord + 0.5)`); return `0` for out-of-volume coordinates.
+- **FR-6:** Produce one 2D image per valid CSV row, preserving the original CSV order.
+- **FR-7:** Scale intensities using the global volume minimum/maximum to 8-bit grayscale, center frames on a uniform even-dimension black canvas, and encode to an H.264 (`yuv420p`) MP4 file.
+- **FR-8:** Optionally benchmark and report projection-only throughput in frames per second (FPS).
 
-- NFR-1: Stable and deterministic output for a given input.
-- NFR-2: Clear separation between geometry, input parsing, and video generation.
-- NFR-3: Automated tests for geometry, boundary conditions, parsing, and frame formatting.
-- NFR-4: Performance goal: >=30 projection frames/second for the assignment's benchmark; 100 FPS expected. Must be validated empirically.
+## Non-Functional Requirements
 
-## Input and output contracts
+- **NFR-1:** Deterministic output for any given NRRD and CSV input.
+- **NFR-2:** Modular separation between geometry/sampling (`projection/core.py`), file I/O (`projection/io.py`), and CLI/video generation (`projection/cli.py`).
+- **NFR-3:** Automated `pytest` suite (`tests/test_projection.py`) covering triangle and trapezoid sampling, out-of-bounds handling, geometry validation, CSV parsing, and frame padding.
+- **NFR-4:** Performance target of at least 30 projection FPS (100 FPS expected target), measurable via `--benchmark`.
 
-- Volume array: `volume[x,y,z]`, voxel-index coordinates, unsigned integer.
-- CSV: 9 or 12 comma-separated numeric fields per row; see README.
-- MP4: 8-bit grayscale frames encoded with H.264, padded to uniform even dimensions.
+## Input and Output Contracts
 
-## Open questions for instructor
-
-1. Are external NRRD and MP4 libraries allowed?
-2. Is FPS measured for projection only, or end-to-end video generation?
-3. What exact four-point ordering and CSV schema are expected?
-4. Must plane coordinates be physical-world coordinates or voxel indices?
-5. Is the assignment pseudocode's omission of the apex intentional?
-
-
-CSV input: The lecturer-provided CSV begins with `Number of Point`, then x1,y1,z1 through x4,y4,z4. Each row contains 3 or 4 points; unused final fields may be empty.
+- **Volume array:** `volume[x, y, z]` loaded in Fortran index order, voxel-index coordinates, `uint8` / `uint16` / `uint32`.
+- **CSV schema:** Optional header starting with `Number of Point`, followed by rows of `3,x1,y1,z1,x2,y2,z2,x3,y3,z3` (with optional trailing empty cells) or `4,x1,y1,z1,x2,y2,z2,x3,y3,z3,x4,y4,z4`.
+- **MP4 output:** 8-bit grayscale frames encoded with `libx264` (`yuv420p`), padded to uniform even dimensions matching the largest projected frame.
